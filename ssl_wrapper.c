@@ -18,15 +18,35 @@
 
 static char s_server_host[100];       // SERVER host, e.g. "google.com"
 static unsigned short s_server_port;  // SERVER port
-
 static char s_wrapper_host[100];      // WRAPPER_SERVER host
 static unsigned short s_wrapper_port; // WRAPPER_SERVER port
-
 static char s_plain_port[10];         // Listening non-SSL port
 static char s_ssl_port[10];           // Listening SSL port
-
+static const char *s_hexdump_file;    // Traffic dump file
 static const char *s_server_cert = "server.pem";
 //static const char *s_client_cert = "client.pem";
+
+static void elog(int do_exit, const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(stderr, fmt, ap);
+  va_end(ap);
+  fputc('\n', stderr);
+  if (do_exit) exit(EXIT_FAILURE);
+}
+
+static void show_usage_and_exit(const char *prog) {
+  elog(1, "Usage: %s [-p plain_port:ssl_host:ssl_port] "
+       "[-s ssl_port:plain_host:plain_port]", prog);
+  exit(EXIT_FAILURE);
+}
+
+static void *serving_thread_func(void *param) {
+  for (;;) {
+    ns_server_poll((struct ns_server *) param, 1000);
+  }
+  return NULL;
+}
 
 static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
   struct ns_connection *pc = (struct ns_connection *) nc->connection_data;
@@ -35,8 +55,11 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
   switch (ev) {
     case NS_ACCEPT:
       // New SSL connection. Create a connection to the target, and link them
-      nc->connection_data = ns_connect(nc->server, s_server_host,
-                                       s_server_port, 0, nc);
+      nc->connection_data = ns_connect(nc->server,
+        nc->ssl == NULL ? s_wrapper_host : s_server_host,
+        nc->ssl == NULL ? s_wrapper_port : s_server_port,
+        nc->ssl == NULL ? 1 : 0,
+        nc);
       if (nc->connection_data == NULL) {
         nc->flags |= NSF_CLOSE_IMMEDIATELY;
       }
@@ -66,28 +89,6 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
   }
 }
 
-static void elog(int do_exit, const char *fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-  vfprintf(stderr, fmt, ap);
-  va_end(ap);
-  fputc('\n', stderr);
-  if (do_exit) exit(EXIT_FAILURE);
-}
-
-static void show_usage_and_exit(const char *prog) {
-  elog(1, "Usage: %s [-p plain_port:ssl_host:ssl_port] "
-       "[-s ssl_port:plain_host:plain_port]", prog);
-  exit(EXIT_FAILURE);
-}
-
-static void *serving_thread_func(void *param) {
-  for (;;) {
-    ns_server_poll((struct ns_server *) param, 1000);
-  }
-  return NULL;
-}
-
 // Resolve FDQN "host", store IP address in the "ip". Return 0 on failure.
 static int resolve(const char *host, char *ip, size_t ip_len) {
   struct hostent *he;
@@ -113,6 +114,8 @@ int main(int argc, char *argv[]) {
           s_ssl_port, s_server_host, &s_server_port) != 3) {
         show_usage_and_exit(argv[0]);
       }
+    } else if (strcmp(argv[i], "-hex") == 0 && i + 1 < argc) {
+      s_hexdump_file = argv[++i];
     } else {
       show_usage_and_exit(argv[0]);
     }
@@ -122,7 +125,18 @@ int main(int argc, char *argv[]) {
   ns_server_init(&ssl_server, NULL, NULL);
 
   if (s_wrapper_host[0] != '\0') {
-  } else if (s_server_host[0] != '\0') {
+    ns_server_init(&ssl_server, NULL, ev_handler);
+    if (ns_bind(&ssl_server, s_plain_port) < 0) {
+      elog(1, "Error binding to %s", s_ssl_port);
+    } else if (!resolve(s_wrapper_host, s_wrapper_host,
+               sizeof(s_wrapper_host))) {
+      elog(1, "Cannot resolve [%s]", s_wrapper_host);
+    }
+    elog(0, "TCP --> Port %s <== SSL ==> %s:%hu", s_plain_port, s_wrapper_host,
+         s_wrapper_port);
+  }
+
+  if (s_server_host[0] != '\0') {
     ns_server_init(&plain_server, NULL, ev_handler);
     if (ns_bind(&plain_server, s_ssl_port) < 0) {
       elog(1, "Error binding to %s", s_ssl_port);
@@ -131,14 +145,16 @@ int main(int argc, char *argv[]) {
     } else if (!resolve(s_server_host, s_server_host, sizeof(s_server_host))) {
       elog(1, "Cannot resolve [%s]", s_server_host);
     }
-    elog(0, "Forwarding SSL port %s to %s:%hu",
-         s_ssl_port, s_server_host, s_server_port);
-  } else {
+    elog(0, "SSL ==> Port %s <-- TCP --> %s:%hu", s_ssl_port, s_server_host,
+         s_server_port);
+  }
+
+  if (s_server_host[0] == '\0' && s_wrapper_host[0] == '\0') {
     show_usage_and_exit(argv[0]);
   }
 
-  serving_thread_func(&plain_server);
   ns_start_thread(serving_thread_func, &ssl_server);
+  serving_thread_func(&plain_server);
 
   return EXIT_SUCCESS;
 }
