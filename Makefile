@@ -8,4 +8,4 @@ ssl_wrapper.exe:
 	wine cl ssl_wrapper.c $(NS)/net_skeleton.c /I$(NS) /MD
 
 clean:
-	rm -rf ssl_wrapper ssl_wrapper.exe *.o *.obj
+	rm -rf ssl_wrapper ssl_wrapper.exe *.o *.obj *.dSYM
