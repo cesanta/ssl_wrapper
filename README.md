@@ -27,7 +27,17 @@ WRAPPER_SERVER is usually called 'SSL termination proxy'.
 
 ## Configuration options
 
+    Usage: ssl_wrapper [OPTIONS]
+    Available options:
+      -p tcp_port:wrapper_host:wrapper_port
+      -s ssl_port:server_host:server_port
+
 ## Examples
+
+Enable SSL on a web server (listen on port 443, terminate SSL and forward
+all traffic to port 80, which is a web port):
+
+	ssl_wrapper -s 443:127.0.0.1:80
 
 ## License
 
