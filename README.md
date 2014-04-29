@@ -28,3 +28,10 @@ WRAPPER_SERVER is usually called 'SSL termination proxy'.
 ## Configuration options
 
 ## Examples
+
+## License
+
+SSL Wrapper is released under
+[GNU GPL v.2](http://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
+Businesses have an option to get non-restrictive commercial
+license and professional support from [Cesanta Software](http://cesanta.com).
