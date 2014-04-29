@@ -10,8 +10,8 @@ Comminication that is secured by SSL Wrapper looks like this:
 
     CLIENT <-> WRAPPER_CLIENT <====== SSL =====> WRAPPER_SERVER <-> SERVER
 
-    WRAPPER_CLIENT: ssl_tunnel -P port:wrapper_server_host:wrapper_server_port
-	WRAPPER_SERVER: ssl_tunnel -S port:server_host:server_port
+    WRAPPER_CLIENT: ssl_wrapper -c port:wrapper_server_host:wrapper_server_port
+	WRAPPER_SERVER: ssl_wrapper -s port:server_host:server_port
 
 Instead of connecting directly to the SERVER, CLIENT is configured to connect
 to the WRAPPER_CLIENT. WRAPPER_CLIENT encrypts the data and passes it over
