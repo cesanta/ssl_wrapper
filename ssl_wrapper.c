@@ -57,8 +57,10 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
       break;
     case NS_RECV:
       // Forward arrived data to the other connection, and discard from buffer
-      ns_send(pc, io->buf, io->len);
-      iobuf_remove(io, io->len);
+      if (pc != NULL) {
+        ns_send(pc, io->buf, io->len);
+        iobuf_remove(io, io->len);
+      }
     default:
       break;
   }
