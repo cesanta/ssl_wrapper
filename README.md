@@ -39,6 +39,13 @@ all traffic to port 80, which is a web port):
 
 	ssl_wrapper -s 443:127.0.0.1:80
 
+## Building SSL wrapper
+
+	git clone https://github.com/cesanta/net_skeleton.git
+	git clone https://github.com/cesanta/ssl_wrapper.git
+	cd ssl_wrapper
+	make
+
 ## License
 
 SSL Wrapper is released under
