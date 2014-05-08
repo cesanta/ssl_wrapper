@@ -1,7 +1,7 @@
 NS = ../net_skeleton
 DEFS = -I$(NS) -DNS_ENABLE_SSL $(CFLAGS_EXTRA)
 
-ssl_wrapper:
+ssl_wrapper: ssl_wrapper.c
 	$(CC) ssl_wrapper.c $(NS)/net_skeleton.c -o $@ -W -Wall -O2 $(DEFS) -lssl
 
 ssl_wrapper.exe:
