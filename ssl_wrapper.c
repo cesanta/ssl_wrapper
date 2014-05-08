@@ -24,7 +24,7 @@ static char s_plain_port[10];         // Listening non-SSL port
 static char s_ssl_port[10];           // Listening SSL port
 static const char *s_hexdump_file;    // Traffic dump file
 static const char *s_server_cert = "server.pem";
-//static const char *s_client_cert = "client.pem";
+static const char *s_client_cert = "client.pem";
 
 static void elog(int do_exit, const char *fmt, ...) {
   va_list ap;
@@ -114,6 +114,10 @@ int main(int argc, char *argv[]) {
           s_ssl_port, s_server_host, &s_server_port) != 3) {
         show_usage_and_exit(argv[0]);
       }
+    } else if (strcmp(argv[i], "-cc") == 0 && i + 1 < argc) {
+      s_client_cert = argv[++i];
+    } else if (strcmp(argv[i], "-sc") == 0 && i + 1 < argc) {
+      s_server_cert = argv[++i];
     } else if (strcmp(argv[i], "-hex") == 0 && i + 1 < argc) {
       s_hexdump_file = argv[++i];
     } else {
