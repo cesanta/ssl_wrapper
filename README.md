@@ -38,7 +38,7 @@ all traffic to port 80, which is a web port):
 	make
 
 Note: SSL Wrapper is built on top of
-[Net Skeleton](http://https://github.com/cesanta/net_skeleton), and therefore
+[Net Skeleton](https://github.com/cesanta/net_skeleton), and therefore
 it is portable and works on may operating systems including Windows, MacOS, UNIX/LINUX, QNX, eCos, Android, iOS, and more.
 
 ## License
