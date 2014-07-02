@@ -36,8 +36,13 @@ static void elog(int do_exit, const char *fmt, ...) {
 }
 
 static void show_usage_and_exit(const char *prog) {
-  elog(1, "Usage: %s [-p plain_port:ssl_host:ssl_port] "
-       "[-s ssl_port:plain_host:plain_port]", prog);
+  elog(1, "Usage: %s [OPTIONS]\n"
+       "Available options are: \n"
+       "  [-c plain_listening_port:ssl_target_host:ssl_target_port]\n"
+       "  [-s ssl_listening_port:plain_taget_host:plain_target_port]\n"
+       "  [-cs client_certficate_pem_file]\n"
+       "  [-ss server_certificate_pem_file]\n"
+       "  [-hex debug_hexdump_file]", prog);
   exit(EXIT_FAILURE);
 }
 
