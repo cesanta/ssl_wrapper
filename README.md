@@ -3,8 +3,21 @@ ssl_wrapper
 
 SSL Wrapper is an application that encrypts any unsecured network
 communication inside secure SSL tunnel and provides industry-grade
-authentication mechanism. To achieve that, only minor re-configuration
-is required instead software update that costs time and money.
+authentication mechanism. 
+
+SSL wrapper opens a listening port and forwards traffic to the specified target host, in two modes:
+
+   1.  Listening port is SSL, target host is plain TCP
+   2.  Listening port is plain TCP, target host is SSL
+
+SSL wrapper can be used just on one side of communication, or on both sides:
+
+- on one side (client), SSL wrapper encrypts outgoing client traffic
+- on one side (server), SSL wrapper decrypts incoming server traffic,
+  implementing
+  [SSL termination proxy](http://en.wikipedia.org/wiki/SSL_termination_proxy)
+- on both sides, two paired SSL wrappers enclose plain TCP traffic
+  into the secure SSL tunnel
 
 Graphics below illustrate how SSL Wrapper works:
 
@@ -16,9 +29,13 @@ Graphics below illustrate how SSL Wrapper works:
 ## Configuration options
 
     Usage: ssl_wrapper [OPTIONS]
-    Available options:
-      -p tcp_port:wrapper_host:wrapper_port
-      -s ssl_port:server_host:server_port
+    Available options are: 
+      [-c plain_listening_port:ssl_target_host:ssl_target_port]
+      [-s ssl_listening_port:plain_taget_host:plain_target_port]
+      [-cs client_certficate_pem_file]
+      [-ss server_certificate_pem_file]
+      [-hex debug_hexdump_file]
+
 
 ## Examples
 
