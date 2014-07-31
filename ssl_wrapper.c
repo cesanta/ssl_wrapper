@@ -72,7 +72,8 @@ static int resolve(const char *host, char *ip, size_t ip_len) {
              inet_ntoa(* (struct in_addr *) he->h_addr_list[0]));
 }
 
-const char *ssl_wrapper_serve(struct ssl_wrapper_config *config) {
+const char *ssl_wrapper_serve(struct ssl_wrapper_config *config,
+                              volatile int *quit) {
   struct ns_server server;
   char target_host[100];
 
@@ -99,9 +100,10 @@ const char *ssl_wrapper_serve(struct ssl_wrapper_config *config) {
 
   config->target_host = target_host;
 
-  for (;;) {
+  while (*quit == 0) {
     ns_server_poll(&server, 1000);
   }
+  ns_server_free(&server);
 
   return NULL;
 }

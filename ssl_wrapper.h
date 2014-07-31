@@ -30,7 +30,7 @@ struct ssl_wrapper_config {
   const char *ssl_cert;             // If non-NULL, listening port is SSL
 };
 
-const char *ssl_wrapper_serve(struct ssl_wrapper_config *);
+const char *ssl_wrapper_serve(struct ssl_wrapper_config *, volatile int *);
 
 #ifdef __cplusplus
 }
