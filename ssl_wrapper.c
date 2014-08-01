@@ -109,6 +109,13 @@ const char *ssl_wrapper_serve(struct ssl_wrapper_config *config,
 }
 
 #ifndef SSL_WRAPPER_USE_AS_LIBRARY
+static int s_received_signal = 0;
+
+static void signal_handler(int sig_num) {
+  signal(sig_num, signal_handler);
+  s_received_signal = sig_num;
+}
+
 static void show_usage_and_exit(const char *prog) {
   fprintf(stderr, "Usage: %s [OPTIONS]\n"
     "Available options are: \n"
@@ -152,7 +159,11 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  ssl_wrapper_serve(&config);
+  // Setup signal handlers
+  signal(SIGTERM, signal_handler);
+  signal(SIGINT, signal_handler);
+  
+  ssl_wrapper_serve(&config, &s_received_signal);
 
   return EXIT_SUCCESS;
 }
