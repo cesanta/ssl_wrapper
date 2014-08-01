@@ -36,13 +36,6 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
       }
       break;
 
-    case NS_CONNECT:
-      // Connection to the target finished. If failed, close both
-      if (* (int *) p != 0 && pc != NULL) {
-        pc->flags |= NSF_CLOSE_IMMEDIATELY;
-      }
-      break;
-
     case NS_CLOSE:
       // If either connection closes, unlink them and shedule closing
       if (pc != NULL) {
@@ -58,6 +51,7 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
         ns_send(pc, io->buf, io->len);
         iobuf_remove(io, io->len);
       }
+      break;
 
     default:
       break;
@@ -78,7 +72,7 @@ const char *ssl_wrapper_serve(struct ssl_wrapper_config *config,
   char target_host[100];
 
   ns_server_init(&server, config, ev_handler);
-  
+
   if (ns_bind(&server, config->listening_port) < 0) {
     return "ns_bind() failed: bad listening_port";
   }
@@ -162,7 +156,7 @@ int main(int argc, char *argv[]) {
   // Setup signal handlers
   signal(SIGTERM, signal_handler);
   signal(SIGINT, signal_handler);
-  
+
   ssl_wrapper_serve(&config, &s_received_signal);
 
   return EXIT_SUCCESS;
