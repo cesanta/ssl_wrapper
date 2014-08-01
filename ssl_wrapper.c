@@ -47,9 +47,6 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
       // If either connection closes, unlink them and shedule closing
       if (pc != NULL) {
         pc->flags |= NSF_FINISHED_SENDING_DATA;
-        if (pc->send_iobuf.len == 0) {
-          pc->flags |= NSF_CLOSE_IMMEDIATELY;
-        }
         pc->connection_data = NULL;
       }
       nc->connection_data = NULL;
