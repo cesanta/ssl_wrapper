@@ -23,6 +23,7 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
   struct ns_connection *pc = (struct ns_connection *) nc->connection_data;
   struct iobuf *io = &nc->recv_iobuf;
 
+  (void) p;
   switch (ev) {
     case NS_ACCEPT:
       // New SSL connection. Create a connection to the target, and link them
