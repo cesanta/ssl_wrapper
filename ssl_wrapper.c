@@ -28,7 +28,7 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
     case NS_ACCEPT:
       // New SSL connection. Create a connection to the target, and link them
       nc->connection_data = ns_connect(nc->server,
-                                       config->target_host,
+                                       config->resolved_target_ip,
                                        config->target_port,
                                        config->target_uses_ssl,
                                        nc);
@@ -67,40 +67,54 @@ static int resolve(const char *host, char *ip, size_t ip_len) {
              inet_ntoa(* (struct in_addr *) he->h_addr_list[0]));
 }
 
-const char *ssl_wrapper_serve(struct ssl_wrapper_config *config,
-                              volatile int *quit) {
-  struct ns_server server;
-  char target_host[100];
+void *ssl_wrapper_init(struct ssl_wrapper_config *config,
+                       const char **err_msg) {
+  struct ns_server *server = NULL;
 
-  ns_server_init(&server, config, ev_handler);
+  *err_msg = NULL;
 
-  if (ns_bind(&server, config->listening_port) < 0) {
-    return "ns_bind() failed: bad listening_port";
+  if ((server = (struct ns_server *) calloc(1, sizeof(*server))) == NULL) {
+    *err_msg = "malloc failed";
+  } else {
+    ns_server_init(server, config, ev_handler);
+
+    if (ns_bind(server, config->listening_port) < 0) {
+      *err_msg = "ns_bind() failed: bad listening_port";
+    }
+
+    if (!resolve(config->target_host, config->resolved_target_ip,
+                        sizeof(config->resolved_target_ip))) {
+      *err_msg = "resolve() failed: bad target_host";
+    }
+
+    if (config->ssl_cert != NULL &&
+        ns_set_ssl_cert(server, config->ssl_cert) != 0) {
+      *err_msg = "ns_set_ssl_cert() failed: bad server certificate";
+    }
+
+    if (config->ssl_ca_cert != NULL &&
+        ns_set_ssl_ca_cert(server, config->ssl_ca_cert) != 0) {
+      *err_msg = "ns_set_ssl_ca_cert() failed: bad client certificate";
+    }
+
+    if (*err_msg != NULL) {
+      ns_server_free(server);
+      free(server);
+      server = NULL;
+    }
   }
 
-  if (!resolve(config->target_host, target_host,
-                      sizeof(target_host))) {
-    return "resolve() failed: bad target_host";
-  }
+  return server;
+}
 
-  if (config->ssl_cert != NULL &&
-      ns_set_ssl_cert(&server, config->ssl_cert) != 0) {
-    return "ns_set_ssl_cert() failed: bad server certificate";
-  }
-
-  if (config->ssl_ca_cert != NULL &&
-      ns_set_ssl_ca_cert(&server, config->ssl_ca_cert) != 0) {
-    return "ns_set_ssl_ca_cert() failed: bad client certificate";
-  }
-
-  config->target_host = target_host;
+void ssl_wrapper_serve(void *param, volatile int *quit) {
+  struct ns_server *server = (struct ns_server *) param;
 
   while (*quit == 0) {
-    ns_server_poll(&server, 1000);
+    ns_server_poll(server, 1000);
   }
-  ns_server_free(&server);
-
-  return NULL;
+  ns_server_free(server);
+  free(server);
 }
 
 #ifndef SSL_WRAPPER_USE_AS_LIBRARY
@@ -125,6 +139,8 @@ static void show_usage_and_exit(const char *prog) {
 }
 
 int main(int argc, char *argv[]) {
+  void *wrapper;
+  const char *err_msg;
   struct ssl_wrapper_config config;
   int i;
 
@@ -158,7 +174,11 @@ int main(int argc, char *argv[]) {
   signal(SIGTERM, signal_handler);
   signal(SIGINT, signal_handler);
 
-  ssl_wrapper_serve(&config, &s_received_signal);
+  if ((wrapper = ssl_wrapper_init(&config, &err_msg)) == NULL) {
+    fprintf(stderr, "Error: %s\n", err_msg);
+    exit(EXIT_FAILURE);
+  }
+  ssl_wrapper_serve(wrapper, &s_received_signal);
 
   return EXIT_SUCCESS;
 }

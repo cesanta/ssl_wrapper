@@ -28,9 +28,11 @@ struct ssl_wrapper_config {
   const char *ssl_ca_cert;          // Use two-way SSL with this CA certificate
   const char *listening_port;       // Listening port for this wrapper
   const char *ssl_cert;             // If non-NULL, listening port is SSL
+  char resolved_target_ip[60];      // Don't set this - wrapper will
 };
 
-const char *ssl_wrapper_serve(struct ssl_wrapper_config *, volatile int *);
+void *ssl_wrapper_init(struct ssl_wrapper_config *, const char **err_msg);
+void ssl_wrapper_serve(void *, volatile int *stop_marker);
 
 #ifdef __cplusplus
 }

@@ -12,7 +12,7 @@ ifeq ($(OS),Windows_NT)
 endif
 
 ssl_wrapper: ssl_wrapper.c $(NS)/net_skeleton.c
-	$(CC) ssl_wrapper.c $(NS)/net_skeleton.c $(CFLAGS)
+	$(CC) -o $@ ssl_wrapper.c $(NS)/net_skeleton.c $(CFLAGS)
 
 clean:
 	rm -rf ssl_wrapper ssl_wrapper.exe *.o *.obj *.dSYM
