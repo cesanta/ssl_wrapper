@@ -22,15 +22,15 @@ extern "C" {
 #endif // __cplusplus
 
 struct ssl_wrapper_config {
-  const char *target_host;          // Real destination host
-  int target_port;                  // Real destination port
-  int target_uses_ssl;              // 1 if destination uses SSL, otherwise 0
-  const char *listening_port;       // Listening port for this wrapper
-  const char *ssl_cert;             // If non-NULL, listening port is SSL
-  const char *ssl_ca_cert;          // Use two-way SSL with this CA certificate
-  const char *client_ssl_cert;      // If non-NULL, client-side sertificate
-  const char *client_ca_cert;       // If non-NULL, client-side CA sertificate
-  char resolved_target_ip[60];      // Don't set this - wrapper will
+  const char *target_host;      // Real destination host
+  int target_port;              // Real destination port
+  int target_uses_ssl;          // 1 if destination uses SSL, otherwise 0
+  const char *listening_port;   // Listening port for this wrapper, e.g. "8043"
+  const char *ssl_cert;         // Server cert, makes listening_port SSL
+  const char *ssl_ca_cert;      // Server CA cert, requests cert from client
+  const char *client_ssl_cert;  // Client-side certificate
+  const char *client_ca_cert;   // Client-side CA sertificate
+  char resolved_target_ip[60];  // Don't set this - wrapper will
 };
 
 void *ssl_wrapper_init(struct ssl_wrapper_config *, const char **err_msg);
