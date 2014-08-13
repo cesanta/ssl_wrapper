@@ -27,11 +27,13 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
   switch (ev) {
     case NS_ACCEPT:
       // New SSL connection. Create a connection to the target, and link them
-      nc->connection_data = ns_connect(nc->server,
-                                       config->resolved_target_ip,
-                                       config->target_port,
-                                       config->target_uses_ssl,
-                                       nc);
+      nc->connection_data = ns_connect2(nc->server,
+                                        config->resolved_target_ip,
+                                        config->target_port,
+                                        config->target_uses_ssl,
+                                        config->client_ssl_cert,
+                                        config->client_ca_cert,
+                                        nc);
       if (nc->connection_data == NULL) {
         nc->flags |= NSF_CLOSE_IMMEDIATELY;
       }
@@ -59,14 +61,6 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
   }
 }
 
-// Resolve FDQN "host", store IP address in the "ip". Return 0 on failure.
-static int resolve(const char *host, char *ip, size_t ip_len) {
-  struct hostent *he;
-  return (he = gethostbyname(host)) != NULL &&
-    snprintf(ip, ip_len, "%s",
-             inet_ntoa(* (struct in_addr *) he->h_addr_list[0]));
-}
-
 void *ssl_wrapper_init(struct ssl_wrapper_config *config,
                        const char **err_msg) {
   struct ns_server *server = NULL;
@@ -82,8 +76,8 @@ void *ssl_wrapper_init(struct ssl_wrapper_config *config,
       *err_msg = "ns_bind() failed: bad listening_port";
     }
 
-    if (!resolve(config->target_host, config->resolved_target_ip,
-                        sizeof(config->resolved_target_ip))) {
+    if (ns_resolve(config->target_host, config->resolved_target_ip,
+                  sizeof(config->resolved_target_ip)) <= 0) {
       *err_msg = "resolve() failed: bad target_host";
     }
 
@@ -130,10 +124,12 @@ static void show_usage_and_exit(const char *prog) {
     "Available options are: \n"
     "  -l <port>  Listening port\n"
     "  -t <host>  Target host\n"
+    "  -T         Target uses SSL\n"
     "  -p <port>  Target port\n"
-    "  -S         Target uses SSL (by default, no)\n"
     "  -s <file>  Enable SSL listening with this server sertificate PEM file\n"
-    "  -c <file>  Use SSL two-way auth with this CA certificate PEM file\n",
+    "  -c <file>  Use SSL two-way auth with this CA certificate PEM file\n"
+    "  -S <file>  Set client SSL sertificate PEM file\n"
+    "  -C <file>  Set client CA sertificate PEM file\n",
     prog);
   exit(EXIT_FAILURE);
 }
@@ -153,12 +149,16 @@ int main(int argc, char *argv[]) {
       config.target_host = argv[++i];
     } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
       config.target_port = atoi(argv[++i]);
-    } else if (strcmp(argv[i], "-S") == 0) {
+    } else if (strcmp(argv[i], "-T") == 0) {
       config.target_uses_ssl = 1;
     } else if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) {
       config.ssl_cert = argv[++i];
     } else if (strcmp(argv[i], "-c") == 0 && i + 1 < argc) {
       config.ssl_ca_cert = argv[++i];
+    } else if (strcmp(argv[i], "-S") == 0 && i + 1 < argc) {
+      config.client_ssl_cert = argv[++i];
+    } else if (strcmp(argv[i], "-C") == 0 && i + 1 < argc) {
+      config.client_ca_cert = argv[++i];
     } else {
       show_usage_and_exit(argv[0]);
     }
