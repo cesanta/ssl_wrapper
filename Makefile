@@ -1,6 +1,6 @@
-NS = ../net_skeleton
-DEFS = -I$(NS) -DNS_ENABLE_SSL $(CFLAGS_EXTRA)
+DEFS = -DNS_ENABLE_SSL $(CFLAGS_EXTRA)
 CFLAGS = -W -Wall -O2 -pthread -lssl $(DEFS)
+SOURCES = ssl_wrapper.c net_skeleton.c
 
 ifeq ($(OS),Windows_NT)
  	# Windows build. Assumes that Visual Studio is installed at $(VC)
@@ -11,8 +11,8 @@ ifeq ($(OS),Windows_NT)
 	CFLAGS += /link /incremental:no /libpath:$(VC)/lib /machine:IX86 $(OSSL)/lib/ssleay32.lib
 endif
 
-ssl_wrapper: ssl_wrapper.c $(NS)/net_skeleton.c
-	$(CC) -o $@ ssl_wrapper.c $(NS)/net_skeleton.c $(CFLAGS)
+ssl_wrapper: $(SOURCES)
+	$(CC) -o $@ $(SOURCES) $(CFLAGS)
 
 clean:
 	rm -rf ssl_wrapper ssl_wrapper.exe *.o *.obj *.dSYM

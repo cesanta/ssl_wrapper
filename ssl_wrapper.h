@@ -13,6 +13,8 @@
 //
 // Alternatively, you can license this software under a commercial
 // license, as set out in <http://cesanta.com/products.html>.
+//
+// $Date$
 
 #ifndef SSL_WRAPPER_HEADER_INCLUDED
 #define SSL_WRAPPER_HEADER_INCLUDED
@@ -21,22 +23,8 @@
 extern "C" {
 #endif // __cplusplus
 
-struct ssl_wrapper_config {
-  // Client side configuration (the one that connects to the target host)
-  const char *target_host;      // Real destination host
-  int target_port;              // Real destination port
-  int target_uses_ssl;          // 1 if destination uses SSL, otherwise 0
-  const char *client_ssl_cert;  // Client-side certificate
-  const char *client_ca_cert;   // Client-side CA sertificate
-  char resolved_target_ip[60];  // Don't set this - wrapper will
-
-  // Server side configuration (listening port)
-  const char *listening_port;   // Listening port for this wrapper, e.g. "8043"
-  const char *ssl_cert;         // Server cert, makes listening_port SSL
-  const char *ssl_ca_cert;      // Server CA cert, requests cert from client
-};
-
-void *ssl_wrapper_init(struct ssl_wrapper_config *, const char **err_msg);
+void *ssl_wrapper_init(const char *listen_addr, const char *target_addr,
+                       const char **err_msg);
 void ssl_wrapper_serve(void *, volatile int *stop_marker);
 
 #ifdef __cplusplus

@@ -28,13 +28,21 @@ Graphics below illustrate how SSL Wrapper works:
 
 ## Configuration options
 
-    Usage: ssl_wrapper [OPTIONS]
-    Available options are: 
-      [-c plain_listening_port:ssl_target_host:ssl_target_port]
-      [-s ssl_listening_port:plain_taget_host:plain_target_port]
-      [-cs client_certficate_pem_file]
-      [-ss server_certificate_pem_file]
-      [-hex debug_hexdump_file]
+    Usage: ssl_wrapper <listening_address> <target_address>
+
+Address format is as follows:
+
+    [PROTO://][IP:]PORT[:SSL_CERT.PEM][:CA_CERT.PEM]
+
+PROTO is either `tcp` or `ssl`. If omitted, `tcp` is used. For SSL,
+`SSL_CERT.PEM` specifies server certificate for `listening_address` or
+client certificate for `target_address`. All certificates must be in PEM format.
+Server certificate `SSL_CERT.PEM` file must have both server certificate and
+private key, in PEM format, concatenated together.
+
+If `CA_CERT.PEM` is specified, it enables peer certificate authentication.
+For `listening_address` it enables client side certificate auth, also
+known as two-way SSL.
 
 
 ## Examples
@@ -42,9 +50,16 @@ Graphics below illustrate how SSL Wrapper works:
 Enable SSL on a web server (listen on port 443, terminate SSL and forward
 all traffic to port 80, which is a web port):
 
-	ssl_wrapper -s 443:127.0.0.1:80
+	   ssl_wrapper ssl://443:server_cert.pem 127.0.0.1:80
 
 <img src="http://cesanta.com/images/ssl_wrapper/img_3.png" style="width:80%" />
+
+Setup SSL man-in-the-middle (MITM) proxy for the external site foo.com,
+which requires client authentication. By setting up such a proxy, we can
+connect to foo.com without client-side certificate. Only proxy needs to have
+client-side certificate:
+
+    ssl_wrapper ssl://443:foo_server.pem ssl://foo.com:443:foo_client.pem
 
 
 ## Building SSL wrapper

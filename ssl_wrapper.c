@@ -13,27 +13,22 @@
 //
 // Alternatively, you can license this software under a commercial
 // license, as set out in <http://cesanta.com/products.html>.
+//
+// $Date$
 
 #include "net_skeleton.h"
 #include "ssl_wrapper.h"
 
 static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
-  struct ssl_wrapper_config *config =
-    (struct ssl_wrapper_config *) nc->server->server_data;
+  const char *target_addr = (const char *) nc->mgr->user_data;
   struct ns_connection *pc = (struct ns_connection *) nc->connection_data;
   struct iobuf *io = &nc->recv_iobuf;
 
   (void) p;
   switch (ev) {
     case NS_ACCEPT:
-      // New SSL connection. Create a connection to the target, and link them
-      nc->connection_data = ns_connect2(nc->server,
-                                        config->resolved_target_ip,
-                                        config->target_port,
-                                        config->target_uses_ssl,
-                                        config->client_ssl_cert,
-                                        config->client_ca_cert,
-                                        nc);
+      // Create a connection to the target, and interlink both connections
+      nc->connection_data = ns_connect(nc->mgr, target_addr, nc);
       if (nc->connection_data == NULL) {
         nc->flags |= NSF_CLOSE_IMMEDIATELY;
       }
@@ -61,54 +56,34 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
   }
 }
 
-void *ssl_wrapper_init(struct ssl_wrapper_config *config,
+void *ssl_wrapper_init(const char *local_addr, const char *target_addr,
                        const char **err_msg) {
-  struct ns_server *server = NULL;
-
+  struct ns_mgr *mgr = (struct ns_mgr *) calloc(1, sizeof(mgr[0]));
   *err_msg = NULL;
 
-  if ((server = (struct ns_server *) calloc(1, sizeof(*server))) == NULL) {
+  if (mgr == NULL) {
     *err_msg = "malloc failed";
   } else {
-    ns_server_init(server, config, ev_handler);
-
-    if (ns_bind(server, config->listening_port) < 0) {
+    ns_mgr_init(mgr, (void *) target_addr, ev_handler);
+    if (ns_bind(mgr, local_addr, NULL) == NULL) {
       *err_msg = "ns_bind() failed: bad listening_port";
-    }
-
-    if (ns_resolve(config->target_host, config->resolved_target_ip,
-                  sizeof(config->resolved_target_ip)) <= 0) {
-      *err_msg = "resolve() failed: bad target_host";
-    }
-
-    if (config->ssl_cert != NULL &&
-        ns_set_ssl_cert(server, config->ssl_cert) != 0) {
-      *err_msg = "ns_set_ssl_cert() failed: bad server certificate";
-    }
-
-    if (config->ssl_ca_cert != NULL &&
-        ns_set_ssl_ca_cert(server, config->ssl_ca_cert) != 0) {
-      *err_msg = "ns_set_ssl_ca_cert() failed: bad client certificate";
-    }
-
-    if (*err_msg != NULL) {
-      ns_server_free(server);
-      free(server);
-      server = NULL;
+      ns_mgr_free(mgr);
+      free(mgr);
+      mgr = NULL;
     }
   }
 
-  return server;
+  return mgr;
 }
 
 void ssl_wrapper_serve(void *param, volatile int *quit) {
-  struct ns_server *server = (struct ns_server *) param;
+  struct ns_mgr *mgr = (struct ns_mgr *) param;
 
   while (*quit == 0) {
-    ns_server_poll(server, 1000);
+    ns_mgr_poll(mgr, 1000);
   }
-  ns_server_free(server);
-  free(server);
+  ns_mgr_free(mgr);
+  free(mgr);
 }
 
 #ifndef SSL_WRAPPER_USE_AS_LIBRARY
@@ -120,61 +95,24 @@ static void signal_handler(int sig_num) {
 }
 
 static void show_usage_and_exit(const char *prog) {
-  fprintf(stderr, "Usage: %s [OPTIONS]\n"
-    "Available options are: \n"
-    "  -l <port>  Listening port\n"
-    "  -t <host>  Target host\n"
-    "  -T         Target uses SSL\n"
-    "  -p <port>  Target port\n"
-    "  -s <file>  Enable SSL listening with this server sertificate PEM file\n"
-    "  -c <file>  Use SSL two-way auth with this CA certificate PEM file\n"
-    "  -S <file>  Set client SSL sertificate PEM file\n"
-    "  -C <file>  Set client CA sertificate PEM file\n",
-    prog);
+  fprintf(stderr, "Usage: %s <listening_address> <target_address>\n", prog);
   exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
   void *wrapper;
   const char *err_msg;
-  struct ssl_wrapper_config config;
-  int i;
 
-  // Parse command line options
-  memset(&config, 0, sizeof(config));
-  for (i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-l") == 0 && i + 1 < argc) {
-      config.listening_port = argv[++i];
-    } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
-      config.target_host = argv[++i];
-    } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
-      config.target_port = atoi(argv[++i]);
-    } else if (strcmp(argv[i], "-T") == 0) {
-      config.target_uses_ssl = 1;
-    } else if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) {
-      config.ssl_cert = argv[++i];
-    } else if (strcmp(argv[i], "-c") == 0 && i + 1 < argc) {
-      config.ssl_ca_cert = argv[++i];
-    } else if (strcmp(argv[i], "-S") == 0 && i + 1 < argc) {
-      config.client_ssl_cert = argv[++i];
-    } else if (strcmp(argv[i], "-C") == 0 && i + 1 < argc) {
-      config.client_ca_cert = argv[++i];
-    } else {
-      show_usage_and_exit(argv[0]);
-    }
-  }
-
-  if (config.listening_port == NULL || config.target_host == NULL ||
-      config.target_port <= 0) {
-    fprintf(stderr, "%s\n", "Options -l, -t, -p are mandatory");
-    exit(EXIT_FAILURE);
+  if (argc != 3) {
+    show_usage_and_exit(argv[0]);
   }
 
   // Setup signal handlers
   signal(SIGTERM, signal_handler);
   signal(SIGINT, signal_handler);
+  signal(SIGPIPE, SIG_IGN);
 
-  if ((wrapper = ssl_wrapper_init(&config, &err_msg)) == NULL) {
+  if ((wrapper = ssl_wrapper_init(argv[1], argv[2], &err_msg)) == NULL) {
     fprintf(stderr, "Error: %s\n", err_msg);
     exit(EXIT_FAILURE);
   }
