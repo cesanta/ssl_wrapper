@@ -35,7 +35,7 @@ static void ev_handler(struct ns_connection *nc, enum ns_event ev, void *p) {
       break;
 
     case NS_CLOSE:
-      // If either connection closes, unlink them and shedule closing
+      // If either connection closes, unlink them and schedule closing
       if (pc != NULL) {
         pc->flags |= NSF_FINISHED_SENDING_DATA;
         pc->connection_data = NULL;
