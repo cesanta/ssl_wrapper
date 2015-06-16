@@ -1,5 +1,5 @@
 DEFS = -DNS_ENABLE_SSL $(CFLAGS_EXTRA)
-CFLAGS = -W -Wall -O2 -pthread -lssl $(DEFS)
+CFLAGS = -W -Wall -O2 -pthread -lcrypto -lssl $(DEFS)
 SOURCES = ssl_wrapper.c net_skeleton.c
 
 ifeq ($(OS),Windows_NT)

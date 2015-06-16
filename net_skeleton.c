@@ -33,6 +33,28 @@
 #define NS_UDP_RECEIVE_BUFFER_SIZE  2000
 #define NS_VPRINTF_BUFFER_SIZE      500
 
+#ifdef NS_ENABLE_SSL
+/*
+ * Cipher suite options used for TLS negotiation.
+ * We start with everything and disable some outdated ciphers and digests.
+ */
+static const char ns_s_cipher_list[] =
+    "ALL:!EXPORT:!LOW:!MEDIUM:!ADH:!MD5";
+/*
+ * Default DH params for PFS cipher negotiation. This is a 2048-bit group.
+ * Will be used if none are provided by the user in the certificate file.
+ */
+static const char ns_s_default_dh_params[] = "\
+-----BEGIN DH PARAMETERS-----\n\
+MIIBCAKCAQEAmHXS0vc7ievtFTBSrJQCMr5ciC2dVHlaGSLWQIsbuE8riHf19un6\n\
+WsaXqXpapJIZolDiOFGr/hpk0g+C7K0Fi/qJJRFsFZyTZaahfRdHkWbUW8WVHF4i\n\
+CvaAoI/rCZ6FPNaSGPV+6azhlN8lce/9g/SfAwxghROOF3MW92GDVskieN1/MJtz\n\
+M+jZis65BOHFGhj0c7aAkg/j5+VqK0iV2c5+Ijg14YOiotRYxFY4uged56GQ2rt8\n\
+dYeKsSJIhIo/JayO2seCC8HLvaNGsQymRpvgrDnGEIDpoP0qTa5BYnFVFDRYWO8B\n\
+/T7EhtxDvc7mKRg9U44eyy5RJqZ7eSGjcwIBAg==\n\
+-----END DH PARAMETERS-----\n";
+#endif
+
 struct ctl_msg {
   ns_callback_t callback;
   char message[1024 * 8];
@@ -414,8 +436,10 @@ static sock_t ns_open_listening_socket(union socket_address *sa, int proto) {
 }
 
 #ifdef NS_ENABLE_SSL
-// Certificate generation script is at
-// https://github.com/cesanta/net_skeleton/blob/master/scripts/gen_certs.sh
+/*
+ * Certificate generation script is at
+ * https://github.com/cesanta/fossa/blob/master/scripts/generate_ssl_certificates.sh
+ */
 
 static int ns_use_ca_cert(SSL_CTX *ctx, const char *cert) {
   if (ctx == NULL) {
@@ -436,6 +460,30 @@ static int ns_use_cert(SSL_CTX *ctx, const char *pem_file) {
              SSL_CTX_use_PrivateKey_file(ctx, pem_file, 1) == 0) {
     return -2;
   } else {
+    BIO *bio = NULL;
+    DH *dh = NULL;
+
+    /* Try to read DH parameters from the cert/key file. */
+    bio = BIO_new_file(pem_file, "r");
+    if (bio != NULL) {
+      dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+      BIO_free(bio);
+    }
+    /*
+     * If there are no DH params in the file, fall back to hard-coded ones.
+     * Not ideal, but better than nothing.
+     */
+    if (dh == NULL) {
+      bio = BIO_new_mem_buf((void *)ns_s_default_dh_params, -1);
+      dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+      BIO_free(bio);
+    }
+    if (dh != NULL) {
+      SSL_CTX_set_tmp_dh(ctx, dh);
+      SSL_CTX_set_options(ctx, SSL_OP_SINGLE_DH_USE);
+      DH_free(dh);
+    }
+
     SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
     SSL_CTX_use_certificate_chain_file(ctx, pem_file);
     return 0;
@@ -468,6 +516,11 @@ struct ns_connection *ns_bind(struct ns_mgr *srv, const char *str, void *data) {
 #ifdef NS_ENABLE_SSL
     if (use_ssl) {
       nc->ssl_ctx = SSL_CTX_new(SSLv23_server_method());
+      /* Disable outdated crypto. This leaves only TLS 1.0, 1.1 and 1.2.
+       * Note: You can't use TLSv1_server_method() above as that leaves 1.2
+       * disabled (at least on OpenSSL 1.0.1f 6 Jan 2014). Go figure. */
+      SSL_CTX_set_options(nc->ssl_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
+      SSL_CTX_set_cipher_list(nc->ssl_ctx, ns_s_cipher_list);
       if (ns_use_cert(nc->ssl_ctx, cert) != 0 ||
           ns_use_ca_cert(nc->ssl_ctx, ca_cert) != 0) {
         ns_close_conn(nc);
@@ -850,6 +903,11 @@ struct ns_connection *ns_connect(struct ns_mgr *mgr,
       ns_close_conn(nc);
       return NULL;
     } else {
+      /* Disable outdated crypto. This leaves only TLS 1.0, 1.1 and 1.2.
+       * Note: You can't use TLSv1_server_method() above as that leaves 1.2
+       * disabled (at least on OpenSSL 1.0.1f 6 Jan 2014). Go figure. */
+      SSL_CTX_set_options(nc->ssl_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
+      SSL_CTX_set_cipher_list(nc->ssl_ctx, ns_s_cipher_list);
       SSL_set_fd(nc->ssl, sock);
     }
   }
