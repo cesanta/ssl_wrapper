@@ -110,7 +110,9 @@ int main(int argc, char *argv[]) {
   // Setup signal handlers
   signal(SIGTERM, signal_handler);
   signal(SIGINT, signal_handler);
+#ifndef _WIN32
   signal(SIGPIPE, SIG_IGN);
+#endif
 
   if ((wrapper = ssl_wrapper_init(argv[1], argv[2], &err_msg)) == NULL) {
     fprintf(stderr, "Error: %s\n", err_msg);
