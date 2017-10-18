@@ -73,6 +73,9 @@ Note: SSL Wrapper is built on top of
 [Net Skeleton](https://github.com/cesanta/net_skeleton), and therefore
 it is portable and works on may operating systems including Windows, MacOS, UNIX/LINUX, QNX, eCos, Android, iOS, and more.
 
+Under newer Mac OS X versions the location of the OpenSSL library is not set by XCode, you might need to specify these explicitly:
+make CFLAGS="-I/usr/local/opt/openssl/include" LDFLAGS="-L/usr/local/opt/openssl/lib"
+
 ## License
 
 SSL Wrapper is released under
